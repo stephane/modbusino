@@ -286,7 +286,7 @@ int Modbusino::receive(uint8_t *req) {
     return _receive_msg(req, MSG_INDICATION);
 }
 
-int Modbusino::_build_response_basis(int function, int slave, uint8_t* rsp)
+int Modbusino::_build_response_basis(int slave, int function, uint8_t* rsp)
 {
     rsp[0] = slave;
     rsp[1] = function;
@@ -302,6 +302,20 @@ int Modbusino::_send_msg(uint8_t *req, int req_length)
     req[req_length++] = crc & 0x00FF;
 
     Serial.write(req, req_length);
+}
+
+int Modbusino::_response_exception(int slave, int function, int exception_code,
+				   uint8_t *rsp)
+{
+    int rsp_length;
+
+    function = function + 0x80;
+    rsp_length = _build_response_basis(slave, function, rsp);
+
+    /* Positive exception code */
+    rsp[rsp_length++] = exception_code;
+
+    return rsp_length;
 }
 
 int Modbusino::reply(uint8_t *req, int req_length) {
@@ -320,10 +334,12 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 	int nb = (req[offset + 3] << 8) + req[offset + 4];
 
 	if (address + nb > _nb_register) {
-	    /* FIXME Exception */
+	    rsp_length = _response_exception(
+		slave, function,
+		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
 	} else {
 	    int i;
-	    rsp_length = _build_response_basis(function, slave, rsp);
+	    rsp_length = _build_response_basis(slave, function, rsp);
 	    rsp[rsp_length++] = nb << 1;
 	    for (i = address; i < address + nb; i++) {
 		rsp[rsp_length++] = _tab_register[i] >> 8;
@@ -335,7 +351,9 @@ int Modbusino::reply(uint8_t *req, int req_length) {
     case _FC_WRITE_MULTIPLE_REGISTERS: {
 	int nb = (req[offset + 3] << 8) + req[offset + 4];
 	if ((address + nb) > _nb_register) {
-	    /* FIXME Exception */
+	    rsp_length = _response_exception(
+		slave, function,
+		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
 	} else {
 	    int i, j;
 
@@ -344,7 +362,7 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 		_tab_register[i] = (req[offset + j] << 8) + req[offset + j + 1];
 	    }
 
-	    rsp_length = _build_response_basis(function, slave, rsp);
+	    rsp_length = _build_response_basis(slave, function, rsp);
 	    /* 4 to copy the address (2) and the no. of registers */
 	    memcpy(rsp + rsp_length, req + rsp_length, 4);
 	    rsp_length += 4;
