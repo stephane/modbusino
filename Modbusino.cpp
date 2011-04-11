@@ -32,9 +32,11 @@
 #define _FC_REPORT_SLAVE_ID           0x11
 #define _FC_READ_AND_WRITE_REGISTERS  0x17
 
-#define _STEP_FUNCTION 1
-#define _STEP_META     2
-#define _STEP_DATA     3
+enum {
+    _STEP_FUNCTION = 0x01,
+    _STEP_META,
+    _STEP_DATA
+};
 
 /* Table of CRC values for high-order byte */
 static const uint8_t table_crc_hi[] = {
