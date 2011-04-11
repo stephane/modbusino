@@ -117,7 +117,7 @@ static uint16_t crc16(uint8_t *buffer, uint16_t buffer_length)
 Modbusino::Modbusino(void) {
     _slave = -1;
     _nb_register = 0;
-    _tab_register = NULL;
+    tab_reg = NULL;
 }
 
 void Modbusino::set_slave(int slave) {
@@ -126,16 +126,12 @@ void Modbusino::set_slave(int slave) {
 
 void Modbusino::mapping_new(int nb_register) {
     _nb_register = nb_register;
-    _tab_register = (uint16_t *)malloc(nb_register * sizeof(uint16_t));
+    tab_reg = (uint16_t *)malloc(nb_register * sizeof(uint16_t));
 }
 
 void Modbusino::mapping_free(void) {
     _nb_register = 0;
-    free(_tab_register);
-}
-
-uint16_t * Modbusino::get_mapping(void) {
-    return _tab_register;
+    free(tab_reg);
 }
 
 uint8_t Modbusino::_compute_meta_length_after_function(int function,
@@ -344,8 +340,8 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 	    rsp_length = _build_response_basis(slave, function, rsp);
 	    rsp[rsp_length++] = nb << 1;
 	    for (i = address; i < address + nb; i++) {
-		rsp[rsp_length++] = _tab_register[i] >> 8;
-		rsp[rsp_length++] = _tab_register[i] & 0xFF;
+		rsp[rsp_length++] = tab_reg[i] >> 8;
+		rsp[rsp_length++] = tab_reg[i] & 0xFF;
 	    }
 	}
     }
@@ -361,7 +357,7 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 
 	    for (i = address, j = 6; i < address + nb; i++, j += 2) {
 		/* 6 and 7 = first value */
-		_tab_register[i] = (req[offset + j] << 8) + req[offset + j + 1];
+		tab_reg[i] = (req[offset + j] << 8) + req[offset + j + 1];
 	    }
 
 	    rsp_length = _build_response_basis(slave, function, rsp);

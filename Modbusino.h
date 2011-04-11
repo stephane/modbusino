@@ -31,10 +31,10 @@ public:
     uint16_t *get_mapping(void);
     int receive(uint8_t *req);
     int reply(uint8_t *req, int req_length);
+    uint16_t *tab_reg;
 private:
     int _slave;
     int _nb_register;
-    uint16_t *_tab_register;
     boolean _debug;
     int _receive_msg(uint8_t *msg, int msg_type);
     uint8_t _compute_meta_length_after_function(int function, int msg_type);
