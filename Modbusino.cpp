@@ -17,8 +17,6 @@
 
 #define _MODBUS_RTU_CHECKSUM_LENGTH    2
 
-#define MAX_MESSAGE_LENGTH 260
-
 /* Function codes */
 #define _FC_READ_COILS                0x01
 #define _FC_READ_DISCRETE_INPUTS      0x02
@@ -321,7 +319,7 @@ int Modbusino::reply(uint8_t *req, int req_length) {
     int slave = req[offset - 1];
     int function = req[offset];
     uint16_t address = (req[offset + 1] << 8) + req[offset + 2];
-    uint8_t rsp[MAX_MESSAGE_LENGTH];
+    uint8_t rsp[MODBUS_RTU_MAX_ADU_LENGTH];
     int rsp_length = 0;
 
     /* FIXME No filtering */
