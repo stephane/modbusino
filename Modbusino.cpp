@@ -157,7 +157,6 @@ int Modbusino::_check_integrity(uint8_t *msg, const int msg_length)
 
 int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
 {
-    int rc;
     int length_to_read;
     int msg_index;
     int step;
@@ -171,11 +170,18 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
     msg_index = 0;
     while (length_to_read != 0) {
 
-	/* FIXME To replace by a timeout of 3 ms */
-	delay(1);
-
+	/* The timeout is defined to ~10 ms between each bytes.  Precision is
+	   not that important so I rather to avoid millis() to apply the KISS
+	   principle (millis overflows after 50 days, etc) */
         if (!Serial.available()) {
-            rc = -1;
+	    int i=0;
+	    while (!Serial.available()) {
+		delay(1);
+		if (++i == 10) {
+		    /* Too late, bye */
+		    return -1;
+		}
+	    }
         }
 
 	msg[msg_index] = Serial.read();
