@@ -36,9 +36,6 @@ private:
     int _slave;
     int _nb_register;
     boolean _debug;
-    int _receive_msg(uint8_t *msg, int msg_type);
-    uint8_t _compute_meta_length_after_function(int function, int msg_type);
-    int _compute_data_length_after_meta(uint8_t *msg, int msg_type);
     int _check_integrity(uint8_t *msg, const int msg_length);
     int _build_response_basis(int function, int slave, uint8_t* rsp);
     int _send_msg(uint8_t *req, int req_length);

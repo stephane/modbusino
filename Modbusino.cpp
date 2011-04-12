@@ -24,29 +24,15 @@
 #include "WProgram.h"
 #include "Modbusino.h"
 
-/* Request message on the server side */
-#define MSG_INDICATION 1
-/* Request message on the client side */
-#define MSG_CONFIRMATION 2
-
 #define _MODBUS_RTU_HEADER_LENGTH      1
 #define _MODBUS_RTU_PRESET_REQ_LENGTH  6
 #define _MODBUS_RTU_PRESET_RSP_LENGTH  2
 
 #define _MODBUS_RTU_CHECKSUM_LENGTH    2
 
-/* Function codes */
-#define _FC_READ_COILS                0x01
-#define _FC_READ_DISCRETE_INPUTS      0x02
+/* Supported function codes */
 #define _FC_READ_HOLDING_REGISTERS    0x03
-#define _FC_READ_INPUT_REGISTERS      0x04
-#define _FC_WRITE_SINGLE_COIL         0x05
-#define _FC_WRITE_SINGLE_REGISTER     0x06
-#define _FC_READ_EXCEPTION_STATUS     0x07
-#define _FC_WRITE_MULTIPLE_COILS      0x0F
 #define _FC_WRITE_MULTIPLE_REGISTERS  0x10
-#define _FC_REPORT_SLAVE_ID           0x11
-#define _FC_READ_AND_WRITE_REGISTERS  0x17
 
 enum {
     _STEP_FUNCTION = 0x01,
@@ -93,73 +79,6 @@ void Modbusino::mapping_free(void) {
     free(tab_reg);
 }
 
-uint8_t Modbusino::_compute_meta_length_after_function(int function,
-						       int msg_type)
-{
-    int length;
-
-    if (msg_type == MSG_INDICATION) {
-	if (function <= _FC_WRITE_SINGLE_REGISTER) {
-            length = 4;
-        } else if (function == _FC_WRITE_MULTIPLE_COILS ||
-                   function == _FC_WRITE_MULTIPLE_REGISTERS) {
-            length = 5;
-        } else if (function == _FC_READ_AND_WRITE_REGISTERS) {
-            length = 9;
-        } else {
-            /* _FC_READ_EXCEPTION_STATUS, _FC_REPORT_SLAVE_ID */
-            length = 0;
-        }
-    } else {
-        /* MSG_CONFIRMATION */
-        switch (function) {
-        case _FC_WRITE_SINGLE_COIL:
-        case _FC_WRITE_SINGLE_REGISTER:
-        case _FC_WRITE_MULTIPLE_COILS:
-        case _FC_WRITE_MULTIPLE_REGISTERS:
-            length = 4;
-            break;
-        default:
-            length = 1;
-        }
-    }
-
-    return length;
-}
-
-int Modbusino::_compute_data_length_after_meta(uint8_t *msg,
-						      int msg_type)
-{
-    int function = msg[_MODBUS_RTU_HEADER_LENGTH];
-    int length;
-
-    if (msg_type == MSG_INDICATION) {
-        switch (function) {
-        case _FC_WRITE_MULTIPLE_COILS:
-        case _FC_WRITE_MULTIPLE_REGISTERS:
-            length = msg[_MODBUS_RTU_HEADER_LENGTH + 5];
-            break;
-        case _FC_READ_AND_WRITE_REGISTERS:
-            length = msg[_MODBUS_RTU_HEADER_LENGTH + 9];
-            break;
-        default:
-            length = 0;
-        }
-    } else {
-        /* MSG_CONFIRMATION */
-        if (function <= _FC_READ_INPUT_REGISTERS ||
-            function == _FC_REPORT_SLAVE_ID ||
-            function == _FC_READ_AND_WRITE_REGISTERS) {
-            length = msg[_MODBUS_RTU_HEADER_LENGTH + 1];
-        } else {
-            length = 0;
-        }
-    }
-    length += _MODBUS_RTU_CHECKSUM_LENGTH;
-
-    return length;
-}
-
 int Modbusino::_check_integrity(uint8_t *msg, const int msg_length)
 {
     uint16_t crc_calculated;
@@ -176,11 +95,12 @@ int Modbusino::_check_integrity(uint8_t *msg, const int msg_length)
     }
 }
 
-int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
+int Modbusino::receive(uint8_t *req)
 {
     int length_to_read;
-    int msg_index;
+    int req_index;
     int step;
+    int function;
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
@@ -188,7 +108,7 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
     step = _STEP_FUNCTION;
     length_to_read = _MODBUS_RTU_HEADER_LENGTH + 1;
 
-    msg_index = 0;
+    req_index = 0;
     while (length_to_read != 0) {
 
 	/* The timeout is defined to ~10 ms between each bytes.  Precision is
@@ -205,10 +125,10 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
 	    }
         }
 
-	msg[msg_index] = Serial.read();
+	req[req_index] = Serial.read();
 
         /* Moves the pointer to receive other data */
-	msg_index++;
+	req_index++;
 
         /* Computes remaining bytes */
         length_to_read--;
@@ -217,21 +137,25 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
             switch (step) {
             case _STEP_FUNCTION:
                 /* Function code position */
-                length_to_read = _compute_meta_length_after_function(
-                    msg[_MODBUS_RTU_HEADER_LENGTH],
-                    msg_type);
-                if (length_to_read != 0) {
-                    step = _STEP_META;
-                    break;
-                } /* else switches straight to the next step */
+		function = req[_MODBUS_RTU_HEADER_LENGTH];
+		if (function == _FC_READ_HOLDING_REGISTERS) {
+		    length_to_read = 4;
+		} else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
+		    length_to_read = 5;
+		} else {
+		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_FUNCTION */
+		    return -1;
+		}
+		step = _STEP_META;
+		break;
             case _STEP_META:
-                length_to_read = _compute_data_length_after_meta(
-                    msg, msg_type);
-                if ((msg_index + length_to_read) > MODBUS_RTU_MAX_ADU_LENGTH) {
-                    /*
-		      errno = EMBBADDATA;
-                    _error_print(ctx, "too many data");
-		    */
+		length_to_read = _MODBUS_RTU_CHECKSUM_LENGTH;
+
+		if (function == _FC_WRITE_MULTIPLE_REGISTERS)
+		    length_to_read += req[_MODBUS_RTU_HEADER_LENGTH + 5];
+
+                if ((req_index + length_to_read) > MODBUS_RTU_MAX_ADU_LENGTH) {
+		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE */
                     return -1;
                 }
                 step = _STEP_DATA;
@@ -242,12 +166,9 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
         }
     }
 
-    return _check_integrity(msg, msg_index);
+    return _check_integrity(req, req_index);
 }
 
-int Modbusino::receive(uint8_t *req) {
-    return _receive_msg(req, MSG_INDICATION);
-}
 
 int Modbusino::_build_response_basis(int slave, int function, uint8_t* rsp)
 {
@@ -257,14 +178,14 @@ int Modbusino::_build_response_basis(int slave, int function, uint8_t* rsp)
     return _MODBUS_RTU_PRESET_RSP_LENGTH;
 }
 
-int Modbusino::_send_msg(uint8_t *req, int req_length)
+int Modbusino::_send_msg(uint8_t *msg, int msg_length)
 {
-    uint16_t crc = crc16(req, req_length);
+    uint16_t crc = crc16(msg, msg_length);
 
-    req[req_length++] = crc >> 8;
-    req[req_length++] = crc & 0x00FF;
+    msg[msg_length++] = crc >> 8;
+    msg[msg_length++] = crc & 0x00FF;
 
-    Serial.write(req, req_length);
+    Serial.write(msg, msg_length);
 }
 
 int Modbusino::_response_exception(int slave, int function, int exception_code,
