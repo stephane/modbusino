@@ -227,7 +227,7 @@ int Modbusino::_receive_msg(uint8_t *msg, int msg_type)
             case _STEP_META:
                 length_to_read = _compute_data_length_after_meta(
                     msg, msg_type);
-                if ((msg_index + length_to_read) > 256) {
+                if ((msg_index + length_to_read) > MODBUS_RTU_MAX_ADU_LENGTH) {
                     /*
 		      errno = EMBBADDATA;
                     _error_print(ctx, "too many data");
