@@ -36,22 +36,6 @@
 #define _FC_READ_HOLDING_REGISTERS    0x03
 #define _FC_WRITE_MULTIPLE_REGISTERS  0x10
 
-/* Protocol exceptions */
-enum {
-    MODBUS_EXCEPTION_ILLEGAL_FUNCTION = 0x01,
-    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
-    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
-    MODBUS_EXCEPTION_SLAVE_OR_SERVER_FAILURE,
-    MODBUS_EXCEPTION_ACKNOWLEDGE,
-    MODBUS_EXCEPTION_SLAVE_OR_SERVER_BUSY,
-    MODBUS_EXCEPTION_NEGATIVE_ACKNOWLEDGE,
-    MODBUS_EXCEPTION_MEMORY_PARITY,
-    MODBUS_EXCEPTION_NOT_DEFINED,
-    MODBUS_EXCEPTION_GATEWAY_PATH,
-    MODBUS_EXCEPTION_GATEWAY_TARGET,
-    MODBUS_EXCEPTION_MAX
-};
-
 enum {
     _STEP_FUNCTION = 0x01,
     _STEP_META,
@@ -153,7 +137,7 @@ static int receive(uint8_t *req)
 	   not that important so I rather to avoid millis() to apply the KISS
 	   principle (millis overflows after 50 days, etc) */
         if (!Serial.available()) {
-	    int i=0;
+	    int i = 0;
 	    while (!Serial.available()) {
 		delay(1);
 		if (++i == 10) {

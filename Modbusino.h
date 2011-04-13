@@ -25,6 +25,11 @@
 #include <inttypes.h>
 #include "WProgram.h"
 
+/* Protocol exceptions */
+#define MODBUS_EXCEPTION_ILLEGAL_FUNCTION     1
+#define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 2
+#define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE   3
+
 class ModbusinoSlave {
 public:
     ModbusinoSlave(uint8_t slave);
