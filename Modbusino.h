@@ -25,7 +25,7 @@
 #include <inttypes.h>
 #include "WProgram.h"
 
-#define MODBUS_RTU_MAX_ADU_LENGTH  256
+#define MODBUSINO_RTU_MAX_ADU_LENGTH  128
 
 /* Protocol exceptions */
 enum {

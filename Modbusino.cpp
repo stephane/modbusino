@@ -154,7 +154,7 @@ int Modbusino::receive(uint8_t *req)
 		if (function == _FC_WRITE_MULTIPLE_REGISTERS)
 		    length_to_read += req[_MODBUS_RTU_HEADER_LENGTH + 5];
 
-                if ((req_index + length_to_read) > MODBUS_RTU_MAX_ADU_LENGTH) {
+                if ((req_index + length_to_read) > MODBUSINO_RTU_MAX_ADU_LENGTH) {
 		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE */
                     return -1;
                 }
@@ -207,7 +207,7 @@ int Modbusino::reply(uint8_t *req, int req_length) {
     int slave = req[offset - 1];
     int function = req[offset];
     uint16_t address = (req[offset + 1] << 8) + req[offset + 2];
-    uint8_t rsp[MODBUS_RTU_MAX_ADU_LENGTH];
+    uint8_t rsp[MODBUSINO_RTU_MAX_ADU_LENGTH];
     int rsp_length = 0;
 
     /* FIXME No filtering */
