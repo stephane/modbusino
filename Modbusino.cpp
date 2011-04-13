@@ -24,7 +24,8 @@
 #include "WProgram.h"
 #include "Modbusino.h"
 
-#define _MODBUS_RTU_HEADER_LENGTH      1
+#define _MODBUS_RTU_SLAVE              0
+#define _MODBUS_RTU_FUNCTION           1
 #define _MODBUS_RTU_PRESET_REQ_LENGTH  6
 #define _MODBUS_RTU_PRESET_RSP_LENGTH  2
 
@@ -108,8 +109,7 @@ static int response_exception(int slave, int function, int exception_code,
 {
     int rsp_length;
 
-    function = function + 0x80;
-    rsp_length = build_response_basis(slave, function, rsp);
+    rsp_length = build_response_basis(slave, function + 0x80, rsp);
 
     /* Positive exception code */
     rsp[rsp_length++] = exception_code;
@@ -128,7 +128,7 @@ static int receive(uint8_t *req)
      * to reach the function code because all packets contain this
      * information. */
     step = _STEP_FUNCTION;
-    length_to_read = _MODBUS_RTU_HEADER_LENGTH + 1;
+    length_to_read = _MODBUS_RTU_FUNCTION + 1;
 
     req_index = 0;
     while (length_to_read != 0) {
@@ -159,7 +159,7 @@ static int receive(uint8_t *req)
             switch (step) {
             case _STEP_FUNCTION:
                 /* Function code position */
-		function = req[_MODBUS_RTU_HEADER_LENGTH];
+		function = req[_MODBUS_RTU_FUNCTION];
 		if (function == _FC_READ_HOLDING_REGISTERS) {
 		    length_to_read = 4;
 		} else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
@@ -174,7 +174,7 @@ static int receive(uint8_t *req)
 		length_to_read = _MODBUS_RTU_CHECKSUM_LENGTH;
 
 		if (function == _FC_WRITE_MULTIPLE_REGISTERS)
-		    length_to_read += req[_MODBUS_RTU_HEADER_LENGTH + 5];
+		    length_to_read += req[_MODBUS_RTU_FUNCTION + 5];
 
                 if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
 		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE */
@@ -193,10 +193,10 @@ static int receive(uint8_t *req)
 
 
 static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length) {
-    int offset = _MODBUS_RTU_HEADER_LENGTH;
-    int slave = req[offset - 1];
-    int function = req[offset];
-    uint16_t address = (req[offset + 1] << 8) + req[offset + 2];
+    int slave = req[_MODBUS_RTU_SLAVE];
+    int function = req[_MODBUS_RTU_FUNCTION];
+    uint16_t address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
+	req[_MODBUS_RTU_FUNCTION + 2];
     uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
     int rsp_length = 0;
 
@@ -205,7 +205,8 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length
 
     switch (function) {
     case _FC_READ_HOLDING_REGISTERS: {
-	int nb = (req[offset + 3] << 8) + req[offset + 4];
+	int nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
+	    req[_MODBUS_RTU_FUNCTION + 4];
 
 	if (address + nb > nb_reg) {
 	    rsp_length = response_exception(
@@ -223,7 +224,8 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length
     }
         break;
     case _FC_WRITE_MULTIPLE_REGISTERS: {
-	int nb = (req[offset + 3] << 8) + req[offset + 4];
+	int nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
+	    req[_MODBUS_RTU_FUNCTION + 4];
 	if ((address + nb) > nb_reg) {
 	    rsp_length = response_exception(
 		slave, function,
@@ -233,7 +235,8 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length
 
 	    for (i = address, j = 6; i < address + nb; i++, j += 2) {
 		/* 6 and 7 = first value */
-		tab_reg[i] = (req[offset + j] << 8) + req[offset + j + 1];
+		tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
+		    req[_MODBUS_RTU_FUNCTION + j + 1];
 	    }
 
 	    rsp_length = build_response_basis(slave, function, rsp);
