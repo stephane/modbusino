@@ -119,6 +119,7 @@ static int response_exception(int slave, int function, int exception_code,
 
 static int receive(uint8_t *req)
 {
+    int i;
     int length_to_read;
     int req_index;
     int step;
@@ -137,7 +138,7 @@ static int receive(uint8_t *req)
 	   not that important so I rather to avoid millis() to apply the KISS
 	   principle (millis overflows after 50 days, etc) */
         if (!Serial.available()) {
-	    int i = 0;
+	    i = 0;
 	    while (!Serial.available()) {
 		delay(1);
 		if (++i == 10) {
@@ -165,7 +166,10 @@ static int receive(uint8_t *req)
 		} else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
 		    length_to_read = 5;
 		} else {
-		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_FUNCTION */
+		    i = response_exception(req[_MODBUS_RTU_SLAVE], function,
+					   MODBUS_EXCEPTION_ILLEGAL_FUNCTION, req);
+		    Serial.flush();
+		    send_msg(req, i);
 		    return -1;
 		}
 		step = _STEP_META;
