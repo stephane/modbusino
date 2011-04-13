@@ -199,7 +199,9 @@ static int receive(uint8_t *req)
 }
 
 
-static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length) {
+static int reply(uint16_t *tab_reg, uint8_t nb_reg,
+		 uint8_t *req, int req_length, uint8_t _slave)
+{
     int slave = req[_MODBUS_RTU_SLAVE];
     int function = req[_MODBUS_RTU_FUNCTION];
     uint16_t address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
@@ -207,7 +209,10 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length
     uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
     int rsp_length = 0;
 
-    /* FIXME No filtering */
+    if (slave != _slave) {
+	return 0;
+    }
+
     req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
 
     switch (function) {
@@ -266,11 +271,14 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
     if (Serial.available()) {
 	rc = receive(req);
 	if (rc > 0) {
-	    reply(tab_reg, nb_reg, req, rc);
+	    reply(tab_reg, nb_reg, req, rc, _slave);
 	}
     }
 
-    /* Returns a positive value if successful, -1 is an undefined error has occured,
-        -2 for MODBUS_EXCEPTION_ILLEGAL_FUNCTION, etc */
+    /* Returns a positive value if successful,
+       0 if a slave filtering has occured,
+       -1 if an undefined error has occured,
+       -2 for MODBUS_EXCEPTION_ILLEGAL_FUNCTION
+       etc */
     return rc;
 }
