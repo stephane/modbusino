@@ -181,7 +181,10 @@ static int receive(uint8_t *req)
 		    length_to_read += req[_MODBUS_RTU_FUNCTION + 5];
 
                 if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
-		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE */
+		    i = response_exception(req[_MODBUS_RTU_SLAVE], function,
+					   MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE, req);
+		    Serial.flush();
+		    send_msg(req, i);
                     return -1;
                 }
                 step = _STEP_DATA;
