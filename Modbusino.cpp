@@ -267,5 +267,7 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
 	}
     }
 
+    /* Returns a positive value if successful, -1 is an undefined error has occured,
+        -2 for MODBUS_EXCEPTION_ILLEGAL_FUNCTION, etc */
     return rc;
 }
