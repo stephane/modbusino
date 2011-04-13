@@ -25,43 +25,13 @@
 #include <inttypes.h>
 #include "WProgram.h"
 
-#define MODBUSINO_RTU_MAX_ADU_LENGTH  128
-
-/* Protocol exceptions */
-enum {
-    MODBUS_EXCEPTION_ILLEGAL_FUNCTION = 0x01,
-    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
-    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
-    MODBUS_EXCEPTION_SLAVE_OR_SERVER_FAILURE,
-    MODBUS_EXCEPTION_ACKNOWLEDGE,
-    MODBUS_EXCEPTION_SLAVE_OR_SERVER_BUSY,
-    MODBUS_EXCEPTION_NEGATIVE_ACKNOWLEDGE,
-    MODBUS_EXCEPTION_MEMORY_PARITY,
-    MODBUS_EXCEPTION_NOT_DEFINED,
-    MODBUS_EXCEPTION_GATEWAY_PATH,
-    MODBUS_EXCEPTION_GATEWAY_TARGET,
-    MODBUS_EXCEPTION_MAX
-};
-
-class Modbusino {
+class ModbusinoSlave {
 public:
-    Modbusino(void);
-    void set_slave(int slave);
-    void mapping_new(int nb_register);
-    void mapping_free(void);
-    uint16_t *get_mapping(void);
-    int receive(uint8_t *req);
-    int reply(uint8_t *req, int req_length);
-    uint16_t *tab_reg;
+    ModbusinoSlave(uint8_t slave);
+    void setup(long baud);
+    int loop(uint16_t *tab_reg, uint8_t nb_reg);
 private:
     int _slave;
-    int _nb_register;
-    boolean _debug;
-    int _check_integrity(uint8_t *msg, const int msg_length);
-    int _build_response_basis(int function, int slave, uint8_t* rsp);
-    int _send_msg(uint8_t *req, int req_length);
-    int _response_exception(int slave, int function, int exception_code,
-			   uint8_t *rsp);
 };
 
 #endif

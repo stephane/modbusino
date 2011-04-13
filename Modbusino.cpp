@@ -30,9 +30,27 @@
 
 #define _MODBUS_RTU_CHECKSUM_LENGTH    2
 
+#define _MODBUSINO_RTU_MAX_ADU_LENGTH  128
+
 /* Supported function codes */
 #define _FC_READ_HOLDING_REGISTERS    0x03
 #define _FC_WRITE_MULTIPLE_REGISTERS  0x10
+
+/* Protocol exceptions */
+enum {
+    MODBUS_EXCEPTION_ILLEGAL_FUNCTION = 0x01,
+    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS,
+    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
+    MODBUS_EXCEPTION_SLAVE_OR_SERVER_FAILURE,
+    MODBUS_EXCEPTION_ACKNOWLEDGE,
+    MODBUS_EXCEPTION_SLAVE_OR_SERVER_BUSY,
+    MODBUS_EXCEPTION_NEGATIVE_ACKNOWLEDGE,
+    MODBUS_EXCEPTION_MEMORY_PARITY,
+    MODBUS_EXCEPTION_NOT_DEFINED,
+    MODBUS_EXCEPTION_GATEWAY_PATH,
+    MODBUS_EXCEPTION_GATEWAY_TARGET,
+    MODBUS_EXCEPTION_MAX
+};
 
 enum {
     _STEP_FUNCTION = 0x01,
@@ -59,27 +77,15 @@ static uint16_t crc16(uint8_t *req, int req_length)
     return (crc << 8  | crc >> 8);
 }
 
-Modbusino::Modbusino(void) {
-    _slave = -1;
-    _nb_register = 0;
-    tab_reg = NULL;
-}
-
-void Modbusino::set_slave(int slave) {
+ModbusinoSlave::ModbusinoSlave(uint8_t slave) {
     _slave = slave;
 }
 
-void Modbusino::mapping_new(int nb_register) {
-    _nb_register = nb_register;
-    tab_reg = (uint16_t *)malloc(nb_register * sizeof(uint16_t));
+void ModbusinoSlave::setup(long baud) {
+    Serial.begin(baud);
 }
 
-void Modbusino::mapping_free(void) {
-    _nb_register = 0;
-    free(tab_reg);
-}
-
-int Modbusino::_check_integrity(uint8_t *msg, const int msg_length)
+static int check_integrity(uint8_t *msg, const int msg_length)
 {
     uint16_t crc_calculated;
     uint16_t crc_received;
@@ -95,7 +101,39 @@ int Modbusino::_check_integrity(uint8_t *msg, const int msg_length)
     }
 }
 
-int Modbusino::receive(uint8_t *req)
+static int build_response_basis(int slave, int function, uint8_t* rsp)
+{
+    rsp[0] = slave;
+    rsp[1] = function;
+
+    return _MODBUS_RTU_PRESET_RSP_LENGTH;
+}
+
+static int send_msg(uint8_t *msg, int msg_length)
+{
+    uint16_t crc = crc16(msg, msg_length);
+
+    msg[msg_length++] = crc >> 8;
+    msg[msg_length++] = crc & 0x00FF;
+
+    Serial.write(msg, msg_length);
+}
+
+static int response_exception(int slave, int function, int exception_code,
+			      uint8_t *rsp)
+{
+    int rsp_length;
+
+    function = function + 0x80;
+    rsp_length = build_response_basis(slave, function, rsp);
+
+    /* Positive exception code */
+    rsp[rsp_length++] = exception_code;
+
+    return rsp_length;
+}
+
+static int receive(uint8_t *req)
 {
     int length_to_read;
     int req_index;
@@ -154,7 +192,7 @@ int Modbusino::receive(uint8_t *req)
 		if (function == _FC_WRITE_MULTIPLE_REGISTERS)
 		    length_to_read += req[_MODBUS_RTU_HEADER_LENGTH + 5];
 
-                if ((req_index + length_to_read) > MODBUSINO_RTU_MAX_ADU_LENGTH) {
+                if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
 		    /* _errno = MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE */
                     return -1;
                 }
@@ -166,48 +204,16 @@ int Modbusino::receive(uint8_t *req)
         }
     }
 
-    return _check_integrity(req, req_index);
+    return check_integrity(req, req_index);
 }
 
 
-int Modbusino::_build_response_basis(int slave, int function, uint8_t* rsp)
-{
-    rsp[0] = slave;
-    rsp[1] = function;
-
-    return _MODBUS_RTU_PRESET_RSP_LENGTH;
-}
-
-int Modbusino::_send_msg(uint8_t *msg, int msg_length)
-{
-    uint16_t crc = crc16(msg, msg_length);
-
-    msg[msg_length++] = crc >> 8;
-    msg[msg_length++] = crc & 0x00FF;
-
-    Serial.write(msg, msg_length);
-}
-
-int Modbusino::_response_exception(int slave, int function, int exception_code,
-				   uint8_t *rsp)
-{
-    int rsp_length;
-
-    function = function + 0x80;
-    rsp_length = _build_response_basis(slave, function, rsp);
-
-    /* Positive exception code */
-    rsp[rsp_length++] = exception_code;
-
-    return rsp_length;
-}
-
-int Modbusino::reply(uint8_t *req, int req_length) {
+static int reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, int req_length) {
     int offset = _MODBUS_RTU_HEADER_LENGTH;
     int slave = req[offset - 1];
     int function = req[offset];
     uint16_t address = (req[offset + 1] << 8) + req[offset + 2];
-    uint8_t rsp[MODBUSINO_RTU_MAX_ADU_LENGTH];
+    uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
     int rsp_length = 0;
 
     /* FIXME No filtering */
@@ -217,13 +223,13 @@ int Modbusino::reply(uint8_t *req, int req_length) {
     case _FC_READ_HOLDING_REGISTERS: {
 	int nb = (req[offset + 3] << 8) + req[offset + 4];
 
-	if (address + nb > _nb_register) {
-	    rsp_length = _response_exception(
+	if (address + nb > nb_reg) {
+	    rsp_length = response_exception(
 		slave, function,
 		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
 	} else {
 	    int i;
-	    rsp_length = _build_response_basis(slave, function, rsp);
+	    rsp_length = build_response_basis(slave, function, rsp);
 	    rsp[rsp_length++] = nb << 1;
 	    for (i = address; i < address + nb; i++) {
 		rsp[rsp_length++] = tab_reg[i] >> 8;
@@ -234,8 +240,8 @@ int Modbusino::reply(uint8_t *req, int req_length) {
         break;
     case _FC_WRITE_MULTIPLE_REGISTERS: {
 	int nb = (req[offset + 3] << 8) + req[offset + 4];
-	if ((address + nb) > _nb_register) {
-	    rsp_length = _response_exception(
+	if ((address + nb) > nb_reg) {
+	    rsp_length = response_exception(
 		slave, function,
 		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
 	} else {
@@ -246,7 +252,7 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 		tab_reg[i] = (req[offset + j] << 8) + req[offset + j + 1];
 	    }
 
-	    rsp_length = _build_response_basis(slave, function, rsp);
+	    rsp_length = build_response_basis(slave, function, rsp);
 	    /* 4 to copy the address (2) and the no. of registers */
 	    memcpy(rsp + rsp_length, req + rsp_length, 4);
 	    rsp_length += 4;
@@ -255,5 +261,20 @@ int Modbusino::reply(uint8_t *req, int req_length) {
 	break;
     }
 
-    return _send_msg(rsp, rsp_length);
+    return send_msg(rsp, rsp_length);
+}
+
+int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
+{
+    int rc;
+    uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
+
+    if (Serial.available()) {
+	rc = receive(req);
+	if (rc > 0) {
+	    reply(tab_reg, nb_reg, req, rc);
+	}
+    }
+
+    return rc;
 }
