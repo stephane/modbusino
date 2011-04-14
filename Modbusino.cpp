@@ -122,7 +122,16 @@ static uint8_t response_exception(uint8_t slave, uint8_t function,
     return rsp_length;
 }
 
-static int receive(uint8_t *req)
+static void flush(void)
+{
+    /* Wait a moment to receive the remaining garbage */
+    while (Serial.available()) {
+	Serial.flush();
+	delay(3);
+    }
+}
+
+static int receive(uint8_t *req, uint8_t _slave)
 {
     uint8_t i;
     uint8_t length_to_read;
@@ -171,10 +180,18 @@ static int receive(uint8_t *req)
 		} else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
 		    length_to_read = 5;
 		} else {
-		    i = response_exception(req[_MODBUS_RTU_SLAVE], function,
-					   MODBUS_EXCEPTION_ILLEGAL_FUNCTION, req);
-		    Serial.flush();
-		    send_msg(req, i);
+		    /* Wait a moment to receive the remaining garbage */
+		    flush();
+		    if (_slave == req[_MODBUS_RTU_SLAVE]) {
+			/* It's for me so send an exception (reuse req) */
+			uint8_t rsp_length = response_exception(
+			    _slave, function,
+			    MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
+			    req);
+			send_msg(req, rsp_length);
+			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
+		    }
+
 		    return -1;
 		}
 		step = _STEP_META;
@@ -186,11 +203,17 @@ static int receive(uint8_t *req)
 		    length_to_read += req[_MODBUS_RTU_FUNCTION + 5];
 
                 if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
-		    i = response_exception(req[_MODBUS_RTU_SLAVE], function,
-					   MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE, req);
-		    Serial.flush();
-		    send_msg(req, i);
-                    return -1;
+		    flush();
+		    if (_slave == req[_MODBUS_RTU_SLAVE]) {
+			/* It's for me so send an exception (reuse req) */
+			uint8_t rsp_length = response_exception(
+			    _slave, function,
+			    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
+			    req);
+			send_msg(req, rsp_length);
+			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
+		    }
+		    return -1;
                 }
                 step = _STEP_DATA;
                 break;
@@ -274,7 +297,7 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
     uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
 
     if (Serial.available()) {
-	rc = receive(req);
+	rc = receive(req, _slave);
 	if (rc > 0) {
 	    reply(tab_reg, nb_reg, req, rc, _slave);
 	}
