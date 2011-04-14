@@ -234,6 +234,8 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
     uint8_t function = req[_MODBUS_RTU_FUNCTION];
     uint16_t address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
 	req[_MODBUS_RTU_FUNCTION + 2];
+    uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
+	req[_MODBUS_RTU_FUNCTION + 4];
     uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
     uint8_t rsp_length = 0;
 
@@ -241,51 +243,35 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 	return;
     }
 
+    if (address + nb > nb_reg) {
+	rsp_length = response_exception(
+	    slave, function,
+	    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
+    }
+
     req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
 
-    switch (function) {
-    case _FC_READ_HOLDING_REGISTERS: {
-	uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
-	    req[_MODBUS_RTU_FUNCTION + 4];
-
-	if (address + nb > nb_reg) {
-	    rsp_length = response_exception(
-		slave, function,
-		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
-	} else {
-	    uint8_t i;
-	    rsp_length = build_response_basis(slave, function, rsp);
-	    rsp[rsp_length++] = nb << 1;
-	    for (i = address; i < address + nb; i++) {
-		rsp[rsp_length++] = tab_reg[i] >> 8;
-		rsp[rsp_length++] = tab_reg[i] & 0xFF;
-	    }
+    if (function == _FC_READ_HOLDING_REGISTERS) {
+	uint8_t i;
+	rsp_length = build_response_basis(slave, function, rsp);
+	rsp[rsp_length++] = nb << 1;
+	for (i = address; i < address + nb; i++) {
+	    rsp[rsp_length++] = tab_reg[i] >> 8;
+	    rsp[rsp_length++] = tab_reg[i] & 0xFF;
 	}
-    }
-        break;
-    case _FC_WRITE_MULTIPLE_REGISTERS: {
-	uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
-	    req[_MODBUS_RTU_FUNCTION + 4];
-	if ((address + nb) > nb_reg) {
-	    rsp_length = response_exception(
-		slave, function,
-		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
-	} else {
-	    int i, j;
+    } else {
+	int i, j;
 
-	    for (i = address, j = 6; i < address + nb; i++, j += 2) {
-		/* 6 and 7 = first value */
-		tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
-		    req[_MODBUS_RTU_FUNCTION + j + 1];
-	    }
-
-	    rsp_length = build_response_basis(slave, function, rsp);
-	    /* 4 to copy the address (2) and the no. of registers */
-	    memcpy(rsp + rsp_length, req + rsp_length, 4);
-	    rsp_length += 4;
+	for (i = address, j = 6; i < address + nb; i++, j += 2) {
+	    /* 6 and 7 = first value */
+	    tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
+		req[_MODBUS_RTU_FUNCTION + j + 1];
 	}
-    }
-	break;
+
+	rsp_length = build_response_basis(slave, function, rsp);
+	/* 4 to copy the address (2) and the no. of registers */
+	memcpy(rsp + rsp_length, req + rsp_length, 4);
+	rsp_length += 4;
     }
 
     send_msg(rsp, rsp_length);
