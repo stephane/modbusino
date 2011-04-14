@@ -124,8 +124,11 @@ static uint8_t response_exception(uint8_t slave, uint8_t function,
 
 static void flush(void)
 {
-    /* Wait a moment to receive the remaining garbage */
-    while (Serial.available()) {
+    uint8_t i = 0;
+
+    /* Wait a moment to receive the remaining garbage but avoid getting stuck
+     * because the line is saturated */
+    while (Serial.available() && i++ < 10) {
 	Serial.flush();
 	delay(3);
     }
