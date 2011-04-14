@@ -98,7 +98,7 @@ static int build_response_basis(uint8_t slave, uint8_t function,
     return _MODBUS_RTU_PRESET_RSP_LENGTH;
 }
 
-static int send_msg(uint8_t *msg, uint8_t msg_length)
+static void send_msg(uint8_t *msg, uint8_t msg_length)
 {
     uint16_t crc = crc16(msg, msg_length);
 
@@ -204,7 +204,7 @@ static int receive(uint8_t *req)
 }
 
 
-static int reply(uint16_t *tab_reg, uint8_t nb_reg,
+static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 		  uint8_t *req, uint8_t req_length, uint8_t _slave)
 {
     uint8_t slave = req[_MODBUS_RTU_SLAVE];
@@ -215,7 +215,7 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg,
     uint8_t rsp_length = 0;
 
     if (slave != _slave) {
-	return 0;
+	return;
     }
 
     req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
@@ -265,7 +265,7 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg,
 	break;
     }
 
-    return send_msg(rsp, rsp_length);
+    send_msg(rsp, rsp_length);
 }
 
 int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
