@@ -75,6 +75,9 @@ static int check_integrity(uint8_t *msg, const int msg_length)
     uint16_t crc_calculated;
     uint16_t crc_received;
 
+    if (msg_length < 2)
+	return -1;
+
     crc_calculated = crc16(msg, msg_length - 2);
     crc_received = (msg[msg_length - 2] << 8) | msg[msg_length - 1];
 
