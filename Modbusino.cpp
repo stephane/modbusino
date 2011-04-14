@@ -43,9 +43,9 @@ enum {
     _STEP_DATA
 };
 
-static uint16_t crc16(uint8_t *req, int req_length)
+static uint16_t crc16(uint8_t *req, uint8_t req_length)
 {
-    int j;
+    uint8_t j;
     uint16_t crc;
 
     crc = 0xFFFF;
@@ -70,7 +70,7 @@ void ModbusinoSlave::setup(long baud) {
     Serial.begin(baud);
 }
 
-static int check_integrity(uint8_t *msg, const int msg_length)
+static int check_integrity(uint8_t *msg, uint8_t msg_length)
 {
     uint16_t crc_calculated;
     uint16_t crc_received;
@@ -89,7 +89,8 @@ static int check_integrity(uint8_t *msg, const int msg_length)
     }
 }
 
-static int build_response_basis(int slave, int function, uint8_t* rsp)
+static int build_response_basis(uint8_t slave, uint8_t function,
+				uint8_t* rsp)
 {
     rsp[0] = slave;
     rsp[1] = function;
@@ -97,7 +98,7 @@ static int build_response_basis(int slave, int function, uint8_t* rsp)
     return _MODBUS_RTU_PRESET_RSP_LENGTH;
 }
 
-static int send_msg(uint8_t *msg, int msg_length)
+static int send_msg(uint8_t *msg, uint8_t msg_length)
 {
     uint16_t crc = crc16(msg, msg_length);
 
@@ -107,10 +108,11 @@ static int send_msg(uint8_t *msg, int msg_length)
     Serial.write(msg, msg_length);
 }
 
-static int response_exception(int slave, int function, int exception_code,
-			      uint8_t *rsp)
+static uint8_t response_exception(uint8_t slave, uint8_t function,
+				  uint8_t exception_code,
+				  uint8_t *rsp)
 {
-    int rsp_length;
+    uint8_t rsp_length;
 
     rsp_length = build_response_basis(slave, function + 0x80, rsp);
 
@@ -122,11 +124,11 @@ static int response_exception(int slave, int function, int exception_code,
 
 static int receive(uint8_t *req)
 {
-    int i;
-    int length_to_read;
-    int req_index;
-    int step;
-    int function;
+    uint8_t i;
+    uint8_t length_to_read;
+    uint8_t req_index;
+    uint8_t step;
+    uint8_t function;
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
@@ -203,14 +205,14 @@ static int receive(uint8_t *req)
 
 
 static int reply(uint16_t *tab_reg, uint8_t nb_reg,
-		 uint8_t *req, int req_length, uint8_t _slave)
+		  uint8_t *req, uint8_t req_length, uint8_t _slave)
 {
-    int slave = req[_MODBUS_RTU_SLAVE];
-    int function = req[_MODBUS_RTU_FUNCTION];
+    uint8_t slave = req[_MODBUS_RTU_SLAVE];
+    uint8_t function = req[_MODBUS_RTU_FUNCTION];
     uint16_t address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
 	req[_MODBUS_RTU_FUNCTION + 2];
     uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
-    int rsp_length = 0;
+    uint8_t rsp_length = 0;
 
     if (slave != _slave) {
 	return 0;
@@ -220,7 +222,7 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg,
 
     switch (function) {
     case _FC_READ_HOLDING_REGISTERS: {
-	int nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
+	uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
 	    req[_MODBUS_RTU_FUNCTION + 4];
 
 	if (address + nb > nb_reg) {
@@ -228,7 +230,7 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg,
 		slave, function,
 		MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
 	} else {
-	    int i;
+	    uint8_t i;
 	    rsp_length = build_response_basis(slave, function, rsp);
 	    rsp[rsp_length++] = nb << 1;
 	    for (i = address; i < address + nb; i++) {
@@ -239,7 +241,7 @@ static int reply(uint16_t *tab_reg, uint8_t nb_reg,
     }
         break;
     case _FC_WRITE_MULTIPLE_REGISTERS: {
-	int nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
+	uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
 	    req[_MODBUS_RTU_FUNCTION + 4];
 	if ((address + nb) > nb_reg) {
 	    rsp_length = response_exception(
