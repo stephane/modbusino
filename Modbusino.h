@@ -25,6 +25,8 @@
 #include <inttypes.h>
 #include "WProgram.h"
 
+#define MODBUS_BROADCAST_ADDRESS 0
+
 /* Protocol exceptions */
 #define MODBUS_EXCEPTION_ILLEGAL_FUNCTION     1
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 2

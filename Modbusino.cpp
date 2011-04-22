@@ -185,7 +185,8 @@ static int receive(uint8_t *req, uint8_t _slave)
 		} else {
 		    /* Wait a moment to receive the remaining garbage */
 		    flush();
-		    if (_slave == req[_MODBUS_RTU_SLAVE]) {
+		    if (req[_MODBUS_RTU_SLAVE] == _slave ||
+			req[_MODBUS_RTU_SLAVE] == MODBUS_BROADCAST_ADDRESS) {
 			/* It's for me so send an exception (reuse req) */
 			uint8_t rsp_length = response_exception(
 			    _slave, function,
@@ -207,7 +208,8 @@ static int receive(uint8_t *req, uint8_t _slave)
 
                 if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
 		    flush();
-		    if (_slave == req[_MODBUS_RTU_SLAVE]) {
+		    if (req[_MODBUS_RTU_SLAVE] == _slave ||
+			req[_MODBUS_RTU_SLAVE] == MODBUS_BROADCAST_ADDRESS) {
 			/* It's for me so send an exception (reuse req) */
 			uint8_t rsp_length = response_exception(
 			    _slave, function,
@@ -242,7 +244,8 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
     uint8_t rsp[_MODBUSINO_RTU_MAX_ADU_LENGTH];
     uint8_t rsp_length = 0;
 
-    if (slave != _slave) {
+    if (slave != _slave &&
+	slave != MODBUS_BROADCAST_ADDRESS) {
 	return;
     }
 
