@@ -43,6 +43,8 @@ enum {
     _STEP_DATA
 };
 
+extern HardwareSerial kuart;
+
 static uint16_t crc16(uint8_t *req, uint8_t req_length)
 {
     uint8_t j;
@@ -68,8 +70,14 @@ ModbusinoSlave::ModbusinoSlave(uint8_t slave) {
     }
 }
 
-void ModbusinoSlave::setup(long baud) {
-    Serial.begin(baud);
+void ModbusinoSlave::setup(uint8_t pin_txe, long baud) {
+    _pin_txe = pin_txe;
+    //Serial.begin(baud);
+    pinMode(_pin_txe, OUTPUT);
+    digitalWrite(_pin_txe, LOW);
+    kuart.begin(baud);
+    Serial.println("hello from inside crazy places...");
+    // Assume it's already setup...
 }
 
 static int check_integrity(uint8_t *msg, uint8_t msg_length)
@@ -100,14 +108,26 @@ static int build_response_basis(uint8_t slave, uint8_t function,
     return _MODBUS_RTU_PRESET_RSP_LENGTH;
 }
 
-static void send_msg(uint8_t *msg, uint8_t msg_length)
+static void send_msg(uint8_t pin_txe, uint8_t *msg, uint8_t msg_length)
 {
     uint16_t crc = crc16(msg, msg_length);
 
     msg[msg_length++] = crc >> 8;
     msg[msg_length++] = crc & 0x00FF;
 
-    Serial.write(msg, msg_length);
+    Serial.print("writing with txe pin ");Serial.println(pin_txe, DEC);
+
+    // oh yeah, still need to wait for dragino to drop txe :(
+    delay(10);
+    if (pin_txe > 0) {
+        digitalWrite(pin_txe, HIGH);
+        delay(1);
+    }
+    kuart.write(msg, msg_length);
+    if (pin_txe > 0) {
+        delay(4);
+        digitalWrite(pin_txe, LOW);
+    }
 }
 
 static uint8_t response_exception(uint8_t slave, uint8_t function,
@@ -130,13 +150,13 @@ static void flush(void)
 
     /* Wait a moment to receive the remaining garbage but avoid getting stuck
      * because the line is saturated */
-    while (Serial.available() && i++ < 10) {
-	Serial.flush();
+    while (kuart.available() && i++ < 10) {
+	kuart.flush();
 	delay(3);
     }
 }
 
-static int receive(uint8_t *req, uint8_t _slave)
+static int receive(uint8_t pin_txe, uint8_t *req, uint8_t _slave)
 {
     uint8_t i;
     uint8_t length_to_read;
@@ -156,9 +176,9 @@ static int receive(uint8_t *req, uint8_t _slave)
 	/* The timeout is defined to ~10 ms between each bytes.  Precision is
 	   not that important so I rather to avoid millis() to apply the KISS
 	   principle (millis overflows after 50 days, etc) */
-        if (!Serial.available()) {
+        if (!kuart.available()) {
 	    i = 0;
-	    while (!Serial.available()) {
+	    while (!kuart.available()) {
 		delay(1);
 		if (++i == 10) {
 		    /* Too late, bye */
@@ -167,7 +187,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 	    }
         }
 
-	req[req_index] = Serial.read();
+	req[req_index] = kuart.read();
 
         /* Moves the pointer to receive other data */
 	req_index++;
@@ -180,6 +200,7 @@ static int receive(uint8_t *req, uint8_t _slave)
             case _STEP_FUNCTION:
                 /* Function code position */
 		function = req[_MODBUS_RTU_FUNCTION];
+                Serial.print("Decoding function ");Serial.println(function, DEC);
 		if (function == _FC_READ_HOLDING_REGISTERS) {
 		    length_to_read = 4;
 		} else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
@@ -194,7 +215,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 			    _slave, function,
 			    MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
 			    req);
-			send_msg(req, rsp_length);
+			send_msg(pin_txe, req, rsp_length);
 			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
 		    }
 
@@ -217,7 +238,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 			    _slave, function,
 			    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
 			    req);
-			send_msg(req, rsp_length);
+			send_msg(pin_txe, req, rsp_length);
 			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
 		    }
 		    return -1;
@@ -234,7 +255,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 }
 
 
-static void reply(uint16_t *tab_reg, uint8_t nb_reg,
+static void reply(uint8_t pin_txe, uint16_t *tab_reg, uint8_t nb_reg,
 		  uint8_t *req, uint8_t req_length, uint8_t _slave)
 {
     uint8_t slave = req[_MODBUS_RTU_SLAVE];
@@ -282,7 +303,7 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 	rsp_length += 4;
     }
 
-    send_msg(rsp, rsp_length);
+    send_msg(pin_txe, rsp, rsp_length);
 }
 
 int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
@@ -290,10 +311,11 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
     int rc;
     uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
 
-    if (Serial.available()) {
-	rc = receive(req, _slave);
+    if (kuart.available()) {
+	rc = receive(_pin_txe, req, _slave);
+        Serial.print("receive rc=");Serial.println(rc, DEC);
 	if (rc > 0) {
-	    reply(tab_reg, nb_reg, req, rc, _slave);
+	    reply(_pin_txe, tab_reg, nb_reg, req, rc, _slave);
 	}
     }
 
@@ -302,5 +324,6 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
        -1 if an undefined error has occured,
        -2 for MODBUS_EXCEPTION_ILLEGAL_FUNCTION
        etc */
+    Serial.print("loop is returning rc=");Serial.println(rc, DEC);
     return rc;
 }
