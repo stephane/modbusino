@@ -34,11 +34,14 @@
 
 class ModbusinoSlave {
 public:
-    ModbusinoSlave(uint8_t slave);
+    ModbusinoSlave(int slave, uint16_t base_address);
     void setup(uint8_t pin_txe, long baud);
     int loop(uint16_t *tab_reg, uint8_t nb_reg);
 private:
-    int _slave;
+    int mb_slave_receive(uint8_t *req);
+    void mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, uint8_t req_length);
+    uint16_t _base_addr;
+    uint8_t _slave;
     int _pin_txe;
 };
 
