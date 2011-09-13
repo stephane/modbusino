@@ -64,10 +64,11 @@ static uint16_t crc16(uint8_t *req, uint8_t req_length)
     return (crc << 8  | crc >> 8);
 }
 
-ModbusinoSlave::ModbusinoSlave(uint8_t slave) {
+ModbusinoSlave::ModbusinoSlave(int slave, uint16_t base_address) {
     if (slave >= 0 & slave <= 247) {
 	_slave = slave;
     }
+    _base_addr = base_address;
 }
 
 void ModbusinoSlave::setup(uint8_t pin_txe, long baud) {
@@ -152,7 +153,7 @@ static void flush(void)
     }
 }
 
-static int receive(uint8_t pin_txe, uint8_t *req, uint8_t _slave)
+int ModbusinoSlave::mb_slave_receive(uint8_t *req)
 {
     uint8_t i;
     uint8_t length_to_read;
@@ -210,7 +211,7 @@ static int receive(uint8_t pin_txe, uint8_t *req, uint8_t _slave)
 			    _slave, function,
 			    MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
 			    req);
-			send_msg(pin_txe, req, rsp_length);
+			send_msg(_pin_txe, req, rsp_length);
 			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
 		    }
 
@@ -233,7 +234,7 @@ static int receive(uint8_t pin_txe, uint8_t *req, uint8_t _slave)
 			    _slave, function,
 			    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
 			    req);
-			send_msg(pin_txe, req, rsp_length);
+			send_msg(_pin_txe, req, rsp_length);
 			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
 		    }
 		    return -1;
@@ -250,8 +251,8 @@ static int receive(uint8_t pin_txe, uint8_t *req, uint8_t _slave)
 }
 
 
-static void reply(uint8_t pin_txe, uint16_t *tab_reg, uint8_t nb_reg,
-		  uint8_t *req, uint8_t req_length, uint8_t _slave)
+void ModbusinoSlave::mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg,
+		  uint8_t *req, uint8_t req_length)
 {
     uint8_t slave = req[_MODBUS_RTU_SLAVE];
     uint8_t function = req[_MODBUS_RTU_FUNCTION];
@@ -283,7 +284,7 @@ static void reply(uint8_t pin_txe, uint16_t *tab_reg, uint8_t nb_reg,
 	    rsp[rsp_length++] = tab_reg[i] >> 8;
 	    rsp[rsp_length++] = tab_reg[i] & 0xFF;
 	}
-    } else {
+    } else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
 	int i, j;
 
 	for (i = address, j = 6; i < address + nb; i++, j += 2) {
@@ -296,9 +297,11 @@ static void reply(uint8_t pin_txe, uint16_t *tab_reg, uint8_t nb_reg,
 	/* 4 to copy the address (2) and the no. of registers */
 	memcpy(rsp + rsp_length, req + rsp_length, 4);
 	rsp_length += 4;
+    } else {
+        // OH CRAP!
     }
 
-    send_msg(pin_txe, rsp, rsp_length);
+    send_msg(_pin_txe, rsp, rsp_length);
 }
 
 int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
@@ -307,9 +310,9 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
     uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
 
     if (modbus_uart.available()) {
-	rc = receive(_pin_txe, req, _slave);
+	rc = mb_slave_receive(req);
 	if (rc > 0) {
-	    reply(_pin_txe, tab_reg, nb_reg, req, rc, _slave);
+	    mb_slave_reply(tab_reg, nb_reg, req, rc);
 	}
     } else {
         rc = 0;
