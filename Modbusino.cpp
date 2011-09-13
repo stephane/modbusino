@@ -311,10 +311,12 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
 	if (rc > 0) {
 	    reply(_pin_txe, tab_reg, nb_reg, req, rc, _slave);
 	}
+    } else {
+        rc = 0;
     }
 
     /* Returns a positive value if successful,
-       0 if a slave filtering has occured,
+       0 if a slave filtering has occured, or no data present
        -1 if an undefined error has occured,
        -2 for MODBUS_EXCEPTION_ILLEGAL_FUNCTION
        etc */
