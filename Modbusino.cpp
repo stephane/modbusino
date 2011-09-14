@@ -250,13 +250,29 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
     return check_integrity(req, req_index);
 }
 
+/**
+ * Returns 0 if request is partially, or completely, out of range
+ */
+static int request_in_range(uint16_t request_base, uint8_t request_count,
+                            uint16_t our_base, uint8_t our_count) {
+    if (request_base + request_count > our_base + our_count) {
+        // they want to read beyond our last register
+        return 0;
+    }
+    if (request_base < our_base) {
+        // no matter how many they want, at least one is before our base
+        return 0;
+    }
+    return 1;
+}
+
 
 void ModbusinoSlave::mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg,
 		  uint8_t *req, uint8_t req_length)
 {
     uint8_t slave = req[_MODBUS_RTU_SLAVE];
     uint8_t function = req[_MODBUS_RTU_FUNCTION];
-    uint16_t address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
+    uint16_t req_address = (req[_MODBUS_RTU_FUNCTION + 1] << 8) +
 	req[_MODBUS_RTU_FUNCTION + 2];
     uint16_t nb = (req[_MODBUS_RTU_FUNCTION + 3] << 8) +
 	req[_MODBUS_RTU_FUNCTION + 4];
@@ -268,10 +284,12 @@ void ModbusinoSlave::mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg,
 	return;
     }
 
-    if (address + nb > nb_reg) {
+    if (!request_in_range(req_address, nb, _base_addr, nb_reg)) {
 	rsp_length = response_exception(
 	    slave, function,
 	    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
+        send_msg(_pin_txe, rsp, rsp_length);
+        return;
     }
 
     req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
@@ -280,25 +298,29 @@ void ModbusinoSlave::mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg,
 	uint8_t i;
 	rsp_length = build_response_basis(slave, function, rsp);
 	rsp[rsp_length++] = nb << 1;
-	for (i = address; i < address + nb; i++) {
-	    rsp[rsp_length++] = tab_reg[i] >> 8;
-	    rsp[rsp_length++] = tab_reg[i] & 0xFF;
+        int li = req_address - _base_addr;  // start at the beginning relative to zero
+	for (i = 0; i < nb; i++, li++) {
+	    rsp[rsp_length++] = tab_reg[li] >> 8;
+	    rsp[rsp_length++] = tab_reg[li] & 0xFF;
 	}
     } else if (function == _FC_WRITE_MULTIPLE_REGISTERS) {
-	int i, j;
-
-	for (i = address, j = 6; i < address + nb; i++, j += 2) {
+        unsigned int i = 0; // counts off their requests
+        int j; // offset in their message
+        int li = req_address - _base_addr;  // logical addressing
+        j = 6;  // offset to first actual data word
+	for (; i < nb; i++, j += 2, li += 2) {
 	    /* 6 and 7 = first value */
-	    tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
+	    tab_reg[li] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
 		req[_MODBUS_RTU_FUNCTION + j + 1];
 	}
 
 	rsp_length = build_response_basis(slave, function, rsp);
-	/* 4 to copy the address (2) and the no. of registers */
+	/* 4 to copy the req_address (2) and the no. of registers */
 	memcpy(rsp + rsp_length, req + rsp_length, 4);
 	rsp_length += 4;
     } else {
         // OH CRAP!
+        // Receive should have already sent an exception here...
     }
 
     send_msg(_pin_txe, rsp, rsp_length);
