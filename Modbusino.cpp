@@ -65,7 +65,7 @@ static uint16_t crc16(uint8_t *req, uint8_t req_length)
 }
 
 ModbusinoSlave::ModbusinoSlave(int slave, uint16_t base_address) {
-    if (slave >= 0 & slave <= 247) {
+    if ((slave >= 0) && (slave <= 247)) {
 	_slave = slave;
     }
     _base_addr = base_address;
