@@ -287,7 +287,7 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 
 int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
 {
-    int rc;
+    int rc = 0;
     uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
 
     if (Serial.available()) {
