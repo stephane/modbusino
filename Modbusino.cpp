@@ -64,17 +64,25 @@ static uint16_t crc16(uint8_t *req, uint8_t req_length)
     return (crc << 8  | crc >> 8);
 }
 
-ModbusinoSlave::ModbusinoSlave(uint16_t base_address) {
-    _base_addr = base_address;
+
+void ModbusinoSlave::setup(int slave, long baud) {
+    setup(slave, baud, 0);
 }
 
-void ModbusinoSlave::setup(int slave, uint8_t pin_txe, long baud) {
+void ModbusinoSlave::setup(int slave, long baud, uint16_t base_address) {
+    setup(slave, baud, base_address, 0);
+}
+
+void ModbusinoSlave::setup(int slave, long baud, uint16_t base_address, uint8_t pin_txe) {
+    _base_addr = base_address;
     if ((slave >= 0) && (slave <= 247)) {
 	_slave = slave;
     }
-    _pin_txe = pin_txe;
-    pinMode(_pin_txe, OUTPUT);
-    digitalWrite(_pin_txe, LOW);
+    if (pin_txe > 0) {
+        _pin_txe = pin_txe;
+        pinMode(_pin_txe, OUTPUT);
+        digitalWrite(_pin_txe, LOW);
+    }
     modbus_uart.begin(baud);
 }
 
