@@ -34,8 +34,38 @@
 
 class ModbusinoSlave {
 public:
-    ModbusinoSlave(uint16_t base_address);
-    void setup(int slave, uint8_t pin_txe, long baud);
+    /**
+     * use the given slaveid and baud rate for the serial port
+     * @param slave
+     * @param baud
+     */
+    void setup(int slave, long baud);
+
+    /**
+     * Use a given base address as logical 0
+     * @param slave
+     * @param baud
+     * @param base_address
+     */
+    void setup(int slave, long baud, uint16_t base_address);
+
+    /**
+     * As per setup(), but also use the given pin as a tx enable pin
+     * 
+     * This is for use on multi drop RS485 networks.
+     * @param slave
+     * @param pin_txe 0 will disable the pin
+     * @param baud
+     */
+    void setup(int slave, long baud, uint16_t base_address, uint8_t pin_txe);
+
+    
+    /**
+     * Call this often!
+     * @param tab_reg logical table of registers.  This will be offset to base_address, if given
+     * @param nb_reg number of registers
+     * @return 
+     */
     int loop(uint16_t *tab_reg, uint8_t nb_reg);
 private:
     int mb_slave_receive(uint8_t *req);

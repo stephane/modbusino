@@ -1,13 +1,11 @@
 #include <Modbusino.h>
 
 // Example of modbusino compatible with the jpmozeta arduino modbus slave example.
-
-ModbusinoSlave modbusino_slave(0x69);
+HardwareSerial modbus_uart = Serial;
+ModbusinoSlave modbusino_slave;
 uint16_t tab_reg[10];
 
 
-// Yes, this is important...
-HardwareSerial modbus_uart = HardwareSerial();
 int ledPin = 11;
 int tx_enable_pin = 6;  // connected to rs485 transceiver
 unsigned long wdog = 0;         /* watchdog */
@@ -22,7 +20,7 @@ enum {
 };
 
 void setup() {
-    modbusino_slave.setup(tx_enable_pin, 38400);
+    modbusino_slave.setup(tx_enable_pin, 38400, 0x69);
     pinMode(ledPin, OUTPUT);
     Serial.begin(57600);
 }
