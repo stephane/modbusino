@@ -344,6 +344,8 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
 	if (rc > 0) {
 	    mb_slave_reply(tab_reg, nb_reg, req, rc);
 	}
+    } else {
+        rc = 0;
     }
 
     /* Returns a positive value if successful,
