@@ -254,6 +254,10 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
             }
         }
     }
+    if (req[_MODBUS_RTU_SLAVE] != _slave &&
+            req[_MODBUS_RTU_SLAVE != MODBUS_BROADCAST_ADDRESS]) {
+        return - 1 - MODBUS_INFORMATIVE_NOT_FOR_US;
+    }
 
     return check_integrity(req, req_index);
 }
@@ -344,8 +348,6 @@ int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
 	if (rc > 0) {
 	    mb_slave_reply(tab_reg, nb_reg, req, rc);
 	}
-    } else {
-        rc = 0;
     }
 
     /* Returns a positive value if successful,
