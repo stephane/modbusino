@@ -187,7 +187,7 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
 		delay(1);
 		if (++i == 10) {
 		    /* Too late, bye */
-		    return -1;
+		    return -1 - MODBUS_INFORMATIVE_RX_TIMEOUT;
 		}
 	    }
         }
