@@ -201,6 +201,12 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
         length_to_read--;
 
         if (length_to_read == 0) {
+            if (req[_MODBUS_RTU_SLAVE] != _slave &&
+                req[_MODBUS_RTU_SLAVE != MODBUS_BROADCAST_ADDRESS]) {
+                flush();
+                return - 1 - MODBUS_INFORMATIVE_NOT_FOR_US;
+            }
+
             switch (step) {
             case _STEP_FUNCTION:
                 /* Function code position */
@@ -212,18 +218,12 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
 		} else {
 		    /* Wait a moment to receive the remaining garbage */
 		    flush();
-		    if (req[_MODBUS_RTU_SLAVE] == _slave ||
-			req[_MODBUS_RTU_SLAVE] == MODBUS_BROADCAST_ADDRESS) {
-			/* It's for me so send an exception (reuse req) */
-			uint8_t rsp_length = response_exception(
-			    _slave, function,
-			    MODBUS_EXCEPTION_ILLEGAL_FUNCTION,
-			    req);
-			send_msg(_pin_txe, req, rsp_length);
-			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
-		    }
-
-		    return -1;
+		    /* It's for me so send an exception (reuse req) */
+                    // TODO - no response if broadcast
+		    uint8_t rsp_length = response_exception(_slave, function,
+			    MODBUS_EXCEPTION_ILLEGAL_FUNCTION, req);
+		    send_msg(_pin_txe, req, rsp_length);
+		    return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
 		}
 		step = _STEP_META;
 		break;
@@ -235,17 +235,12 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
 
                 if ((req_index + length_to_read) > _MODBUSINO_RTU_MAX_ADU_LENGTH) {
 		    flush();
-		    if (req[_MODBUS_RTU_SLAVE] == _slave ||
-			req[_MODBUS_RTU_SLAVE] == MODBUS_BROADCAST_ADDRESS) {
-			/* It's for me so send an exception (reuse req) */
-			uint8_t rsp_length = response_exception(
-			    _slave, function,
-			    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE,
-			    req);
-			send_msg(_pin_txe, req, rsp_length);
-			return - 1 - MODBUS_EXCEPTION_ILLEGAL_FUNCTION;
-		    }
-		    return -1;
+		    /* It's for me so send an exception (reuse req) */
+                    // TODO - no response if broadcast
+		    uint8_t rsp_length = response_exception(_slave, function,
+			    MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE, req);
+		    send_msg(_pin_txe, req, rsp_length);
+		    return - 1 - MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE;
                 }
                 step = _STEP_DATA;
                 break;
@@ -254,11 +249,6 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
             }
         }
     }
-    if (req[_MODBUS_RTU_SLAVE] != _slave &&
-            req[_MODBUS_RTU_SLAVE != MODBUS_BROADCAST_ADDRESS]) {
-        return - 1 - MODBUS_INFORMATIVE_NOT_FOR_US;
-    }
-
     return check_integrity(req, req_index);
 }
 
