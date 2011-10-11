@@ -310,7 +310,7 @@ void ModbusinoSlave::mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg,
         int j; // offset in their message
         int li = req_address - _base_addr;  // logical addressing
         j = 6;  // offset to first actual data word
-	for (; i < nb; i++, j += 2, li += 2) {
+	for (; i < nb; i++, j += 2, li++) {
 	    /* 6 and 7 = first value */
 	    tab_reg[li] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
 		req[_MODBUS_RTU_FUNCTION + j + 1];
