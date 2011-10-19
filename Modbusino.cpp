@@ -149,15 +149,18 @@ static uint8_t response_exception(uint8_t slave, uint8_t function,
     return rsp_length;
 }
 
+/**
+ * Wait for the interbyte timeout to expire, flushing as we go
+ */
 static void flush(void)
 {
     uint8_t i = 0;
-
-    /* Wait a moment to receive the remaining garbage but avoid getting stuck
-     * because the line is saturated */
-    while (modbus_uart.available() && i++ < 10) {
-	modbus_uart.flush();
-	delay(3);
+    while (++i < MODBUS_TIMEOUT_INTERBYTE) {
+        modbus_uart.flush();
+        delay(1);
+        if (modbus_uart.available()) {
+            i = 0;
+        }
     }
 }
 
@@ -185,7 +188,7 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
 	    i = 0;
 	    while (!modbus_uart.available()) {
 		delay(1);
-		if (++i == 10) {
+		if (++i == MODBUS_TIMEOUT_INTERBYTE) {
 		    /* Too late, bye */
 		    return -1 - MODBUS_INFORMATIVE_RX_TIMEOUT;
 		}

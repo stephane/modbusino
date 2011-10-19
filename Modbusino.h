@@ -34,6 +34,13 @@
 #define MODBUS_INFORMATIVE_NOT_FOR_US   4
 #define MODBUS_INFORMATIVE_RX_TIMEOUT   5
 
+// in milliseconds.
+// note, libmodbus defaults to an interbyte timeout of 500ms!
+// I feel that is excessively long, especially we use the interbyte timeout
+// not just to timeout a partial request, but also to determine when a frame ended, 
+// that we were uninterested in.
+#define MODBUS_TIMEOUT_INTERBYTE 10
+
 class ModbusinoSlave {
 public:
     /**
