@@ -170,7 +170,7 @@ int ModbusinoSlave::mb_slave_receive(uint8_t *req)
     uint8_t length_to_read;
     uint8_t req_index;
     uint8_t step;
-    uint8_t function;
+    uint8_t function = 0;
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
