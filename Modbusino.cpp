@@ -121,9 +121,7 @@ static void send_msg(uint8_t pin_txe, uint8_t *msg, uint8_t msg_length)
     msg[msg_length++] = crc >> 8;
     msg[msg_length++] = crc & 0x00FF;
 
-
-    // oh yeah, still need to wait for dragino to drop txe :(
-    delay(10);
+    // These delays are pseudo-science. You _may_ need to tweak them.
     if (pin_txe > 0) {
         digitalWrite(pin_txe, HIGH);
         delay(1);
