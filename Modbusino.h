@@ -31,14 +31,57 @@
 #define MODBUS_EXCEPTION_ILLEGAL_FUNCTION     1
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 2
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE   3
+#define MODBUS_INFORMATIVE_NOT_FOR_US   4
+#define MODBUS_INFORMATIVE_RX_TIMEOUT   5
+
+// in milliseconds.
+// note, libmodbus defaults to an interbyte timeout of 500ms!
+// I feel that is excessively long, especially we use the interbyte timeout
+// not just to timeout a partial request, but also to determine when a frame ended, 
+// that we were uninterested in.
+#define MODBUS_TIMEOUT_INTERBYTE 10
 
 class ModbusinoSlave {
 public:
-    ModbusinoSlave(uint8_t slave);
-    void setup(long baud);
+    /**
+     * use the given slaveid and baud rate for the serial port
+     * @param slave
+     * @param baud
+     */
+    void setup(int slave, long baud);
+
+    /**
+     * Use a given base address as logical 0
+     * @param slave
+     * @param baud
+     * @param base_address
+     */
+    void setup(int slave, long baud, uint16_t base_address);
+
+    /**
+     * As per setup(), but also use the given pin as a tx enable pin
+     * 
+     * This is for use on multi drop RS485 networks.
+     * @param slave
+     * @param pin_txe 0 will disable the pin
+     * @param baud
+     */
+    void setup(int slave, long baud, uint16_t base_address, uint8_t pin_txe);
+
+    
+    /**
+     * Call this often!
+     * @param tab_reg logical table of registers.  This will be offset to base_address, if given
+     * @param nb_reg number of registers
+     * @return 
+     */
     int loop(uint16_t *tab_reg, uint8_t nb_reg);
 private:
-    int _slave;
+    int mb_slave_receive(uint8_t *req);
+    void mb_slave_reply(uint16_t *tab_reg, uint8_t nb_reg, uint8_t *req, uint8_t req_length);
+    uint16_t _base_addr;
+    uint8_t _slave;
+    int _pin_txe;
 };
 
 #endif
