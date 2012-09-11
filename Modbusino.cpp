@@ -17,11 +17,17 @@
  *
  * This library implements the Modbus protocol.
  * http://libmodbus.org/
+ *
  */
 
 #include <inttypes.h>
 
-#include "WProgram.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+  #include "Arduino.h"
+#else
+  #include "WProgram.h"
+  #include <pins_arduino.h>
+#endif
 #include "Modbusino.h"
 
 #define _MODBUS_RTU_SLAVE              0
@@ -234,7 +240,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 }
 
 
-static void reply(uint16_t *tab_reg, uint8_t nb_reg,
+static void reply(uint16_t *tab_reg, uint16_t nb_reg,
 		  uint8_t *req, uint8_t req_length, uint8_t _slave)
 {
     uint8_t slave = req[_MODBUS_RTU_SLAVE];
@@ -255,12 +261,12 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 	rsp_length = response_exception(
 	    slave, function,
 	    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
-    }
+    } else {
 
     req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
 
     if (function == _FC_READ_HOLDING_REGISTERS) {
-	uint8_t i;
+	uint16_t i; //needs to be 16-bit
 	rsp_length = build_response_basis(slave, function, rsp);
 	rsp[rsp_length++] = nb << 1;
 	for (i = address; i < address + nb; i++) {
@@ -281,11 +287,12 @@ static void reply(uint16_t *tab_reg, uint8_t nb_reg,
 	memcpy(rsp + rsp_length, req + rsp_length, 4);
 	rsp_length += 4;
     }
+	}
 
     send_msg(rsp, rsp_length);
 }
 
-int ModbusinoSlave::loop(uint16_t* tab_reg, uint8_t nb_reg)
+int ModbusinoSlave::loop(uint16_t* tab_reg, uint16_t nb_reg)
 {
     int rc = 0;
     uint8_t req[_MODBUSINO_RTU_MAX_ADU_LENGTH];
