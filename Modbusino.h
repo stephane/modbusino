@@ -17,13 +17,19 @@
  *
  * This library implements the Modbus protocol.
  * http://libmodbus.org/
+ * 
  */
 
 #ifndef Modbusino_h
 #define Modbusino_h
 
 #include <inttypes.h>
-#include "WProgram.h"
+#if defined(ARDUINO) && ARDUINO >= 100
+  #include "Arduino.h"
+#else
+  #include "WProgram.h"
+  #include <pins_arduino.h>
+#endif
 
 #define MODBUS_BROADCAST_ADDRESS 0
 
@@ -36,7 +42,7 @@ class ModbusinoSlave {
 public:
     ModbusinoSlave(uint8_t slave);
     void setup(long baud);
-    int loop(uint16_t *tab_reg, uint8_t nb_reg);
+    int loop(uint16_t *tab_reg, uint16_t nb_reg);
 private:
     int _slave;
 };
