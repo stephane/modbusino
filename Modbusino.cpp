@@ -262,32 +262,31 @@ static void reply(uint16_t *tab_reg, uint16_t nb_reg,
 	    slave, function,
 	    MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS, rsp);
     } else {
+        req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
 
-    req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
+        if (function == _FC_READ_HOLDING_REGISTERS) {
+            uint16_t i; //needs to be 16-bit
+            rsp_length = build_response_basis(slave, function, rsp);
+            rsp[rsp_length++] = nb << 1;
+            for (i = address; i < address + nb; i++) {
+                rsp[rsp_length++] = tab_reg[i] >> 8;
+                rsp[rsp_length++] = tab_reg[i] & 0xFF;
+            }
+        } else {
+            int i, j;
 
-    if (function == _FC_READ_HOLDING_REGISTERS) {
-	uint16_t i; //needs to be 16-bit
-	rsp_length = build_response_basis(slave, function, rsp);
-	rsp[rsp_length++] = nb << 1;
-	for (i = address; i < address + nb; i++) {
-	    rsp[rsp_length++] = tab_reg[i] >> 8;
-	    rsp[rsp_length++] = tab_reg[i] & 0xFF;
-	}
-    } else {
-	int i, j;
+            for (i = address, j = 6; i < address + nb; i++, j += 2) {
+                /* 6 and 7 = first value */
+                tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
+                    req[_MODBUS_RTU_FUNCTION + j + 1];
+            }
 
-	for (i = address, j = 6; i < address + nb; i++, j += 2) {
-	    /* 6 and 7 = first value */
-	    tab_reg[i] = (req[_MODBUS_RTU_FUNCTION + j] << 8) +
-		req[_MODBUS_RTU_FUNCTION + j + 1];
-	}
-
-	rsp_length = build_response_basis(slave, function, rsp);
-	/* 4 to copy the address (2) and the no. of registers */
-	memcpy(rsp + rsp_length, req + rsp_length, 4);
-	rsp_length += 4;
+            rsp_length = build_response_basis(slave, function, rsp);
+            /* 4 to copy the address (2) and the no. of registers */
+            memcpy(rsp + rsp_length, req + rsp_length, 4);
+            rsp_length += 4;
+        }
     }
-	}
 
     send_msg(rsp, rsp_length);
 }
