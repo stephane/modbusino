@@ -265,7 +265,8 @@ static void reply(uint16_t *tab_reg, uint16_t nb_reg,
         req_length -= _MODBUS_RTU_CHECKSUM_LENGTH;
 
         if (function == _FC_READ_HOLDING_REGISTERS) {
-            uint16_t i; //needs to be 16-bit
+            uint16_t i;
+
             rsp_length = build_response_basis(slave, function, rsp);
             rsp[rsp_length++] = nb << 1;
             for (i = address; i < address + nb; i++) {
@@ -273,7 +274,7 @@ static void reply(uint16_t *tab_reg, uint16_t nb_reg,
                 rsp[rsp_length++] = tab_reg[i] & 0xFF;
             }
         } else {
-            int i, j;
+            uint16_t i, j;
 
             for (i = address, j = 6; i < address + nb; i++, j += 2) {
                 /* 6 and 7 = first value */
