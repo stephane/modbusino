@@ -1,3 +1,8 @@
+ /*
+ * Copyright © 2011-2012 Stéphane Raimbault <stephane.raimbault@gmail.com>
+ * License ISC, see LICENSE for more details.
+ */
+
 #include <Modbusino.h>
 
 /* Initialize the slave with the ID 1 */
