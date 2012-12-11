@@ -4,7 +4,7 @@ Modbusino
 Introduction
 ------------
 
-Modbusino is a LGPL licensed library to handle Modbus requests on Arduino
+Modbusino is a ISC licensed library to handle Modbus requests on Arduino
 (slave).
 
 
