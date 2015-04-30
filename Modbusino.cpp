@@ -156,7 +156,7 @@ static int receive(uint8_t *req, uint8_t _slave)
 		delay(1);
 		if (++i == 10) {
 		    /* Too late, bye */
-		    return -1;
+		    return -1 - MODBUS_INFORMATIVE_RX_TIMEOUT;
 		}
 	    }
         }
@@ -170,6 +170,12 @@ static int receive(uint8_t *req, uint8_t _slave)
         length_to_read--;
 
         if (length_to_read == 0) {
+            if (req[_MODBUS_RTU_SLAVE] != _slave &&
+                req[_MODBUS_RTU_SLAVE != MODBUS_BROADCAST_ADDRESS]) {
+                flush();
+                return - 1 - MODBUS_INFORMATIVE_NOT_FOR_US;
+            }
+
             switch (step) {
             case _STEP_FUNCTION:
                 /* Function code position */
@@ -223,7 +229,6 @@ static int receive(uint8_t *req, uint8_t _slave)
             }
         }
     }
-
     return check_integrity(req, req_index);
 }
 
