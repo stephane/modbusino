@@ -153,11 +153,11 @@ static int receive(uint8_t *req, uint8_t _slave)
         if (!Serial.available()) {
 	    i = 0;
 	    while (!Serial.available()) {
-		delay(1);
-		if (++i == 10) {
+		if (i++ == 10) {
 		    /* Too late, bye */
 		    return -1;
 		}
+		delay(1);
 	    }
         }
 
