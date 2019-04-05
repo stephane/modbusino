@@ -25,7 +25,9 @@
 
 #define _MODBUS_RTU_CHECKSUM_LENGTH 2
 
-#define _MODBUSINO_RTU_MAX_ADU_LENGTH 128
+/* As reported in https://github.com/stephane/modbusino/issues/6, the code could
+segfault for longer ADU */
+#define _MODBUSINO_RTU_MAX_ADU_LENGTH 256
 
 /* Supported function codes */
 #define _FC_READ_HOLDING_REGISTERS 0x03
