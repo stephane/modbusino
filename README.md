@@ -3,7 +3,7 @@ Modbusino
 
 Introduction
 ------------
-
+This project fork from https://github.com/stephane/modbusino.
 Modbusino is a ISC licensed library to handle Modbus requests on Arduino
 (slave).
 
@@ -23,14 +23,16 @@ Example
 ```c
 #include <Modbusino.h>
 
-/* Initialize the slave with the ID 1 */
-ModbusinoSlave modbusino_slave(1);
+/* Initialize the slave */
+ModbusinoSlave modbusino_slave;
 /* Allocate a mapping of 10 values */
 uint16_t tab_reg[10];
 
 void setup() {
+    /* Set the slave address with the ID 1 */
     /* The transfer speed is set to 115200 bauds */
-    modbusino_slave.setup(115200);
+    /* Set the serial port is Serial */
+    modbusino_slave.setup(1, 115200, &Serial);
 }
 
 void loop() {
