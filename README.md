@@ -4,6 +4,7 @@ Modbusino
 Introduction
 ------------
 This project fork from https://github.com/stephane/modbusino.
+
 Modbusino is a ISC licensed library to handle Modbus requests on Arduino
 (slave).
 
@@ -41,17 +42,17 @@ void loop() {
     /* Launch Modbus slave loop with:
        - pointer to the mapping
        - max values of mapping */
-    modbusino_slave.loop(tab_reg, 10);
+    uint32_t t = 0;
+
+    t = modbusino_slave.loop(tab_reg, 10);
+    
+    uint16_t dlen = temp;
+    uint16_t addr = temp >> 16;
+
+    /* If the Modbus commend is 16(0x10):
+       - dlen: length of the regs that want write
+       - addr: index of the start address 
+       Else, t always is 0*/
+
 }
 ```
-
-Contribute
-----------
-
-I want to keep this library very basic and small so if you want to contribute:
-
-1. Check for open issues or open a fresh issue to start a discussion around a feature idea or a bug.
-2. Fork the [repository](https://github.com/stephane/modbusino/) on Github to start making your changes on another
-   branch.
-3. Send a pull request (of your small and atomic changes).
-4. Bug the maintainer if he's too busy to answer :)
