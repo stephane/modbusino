@@ -62,7 +62,9 @@ void ModbusinoSlave::setup(uint8_t slave, long baud, HardwareSerial* port)
         _slave = slave;
     }
     _port = port;
-    (*port).begin(baud);
+    if (baud >= 0) {
+        (*port).begin(baud);
+    }
 }
 
 static int check_integrity(uint8_t *msg, uint8_t msg_length)
